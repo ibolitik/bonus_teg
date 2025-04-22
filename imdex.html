@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор записей</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .counter {
+            font-size: 48px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            min-width: 50px;
+        }
+        .result {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .hourly-rate {
+            background-color: #e9f7ef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .timer {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .timer-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .time-to-max {
+            background-color: #e9e9f7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 8px;
+            font-size: 16px;
+            width: 60px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Калькулятор записей</h1>
+    
+    <div class="counter" id="counter">0</div>
+    
+    <div class="buttons">
+        <button onclick="addRecords(2)">+2</button>
+        <button onclick="addRecords(3)">+3</button>
+        <button onclick="addRecords(4)">+4</button>
+        <button onclick="addRecords(5)">+5</button>
+        <button onclick="addRecords(6)">+6</button>
+        <button onclick="addRecords(7)">+7</button>
+        <button onclick="addRecords(8)">+8</button>
+        <button onclick="addRecords(9)">+9</button>
+        <button onclick="addRecords(10)">+10</button>
+        <button onclick="addRecords(11)">+11</button>
+    </div>
+    
+    <div class="result" id="result">
+        <p>Обычная оплата: 0 руб. (0 листов × 4 руб.)</p>
+        <p>Бонус: 0 руб. (0% от максимума)</p>
+        <p><strong>Итого: 0 руб.</strong></p>
+    </div>
+    
+    <div class="hourly-rate" id="hourlyRate">
+        <p>Средний заработок в час: 0 руб.</p>
+        <p>Записей в час: 0</p>
+        <p>Листов в час: 0</p>
+    </div>
+    
+    <div class="time-to-max" id="timeToMax">
+        <p>До максимального бонуса (1500 руб.):</p>
+        <p>Осталось записей: 2500</p>
+        <p>Осталось времени: 00:00:00</p>
+    </div>
+    
+    <div class="timer">
+        <div id="timeDisplay">00:00:00</div>
+        <div class="timer-controls">
+            <input type="number" id="initialTime" value="0" min="0">
+            <button onclick="startStopTimer()">Старт/Стоп</button>
+            <button onclick="resetTimer()">Сброс</button>
+        </div>
+    </div>
+
+    <script>
+        let recordsCount = 0;
+        let sheetsCount = 0;
+        let timerInterval;
+        let timerRunning = false;
+        let seconds = 0;
+        let totalPayment = 0;
+        let bonus = 0;
+        const MAX_BONUS = 1500;
+        const MAX_RECORDS_FOR_BONUS = 2500;
+        
+        // Добавление записей
+        function addRecords(num) {
+            recordsCount += num;
+            sheetsCount += 1; // Каждый клик - 1 лист
+            document.getElementById('counter').textContent = recordsCount;
+            calculatePayment();
+            calculateHourlyRate();
+            calculateTimeToMax();
+        }
+        
+        // Расчет оплаты
+        function calculatePayment() {
+            // Обычная оплата (4 рубля за лист)
+            const basePayment = sheetsCount * 4;
+            
+            // Расчет бонусов (по количеству записей)
+            bonus = 0;
+            
+            if (recordsCount > 750) {
+                const over750 = recordsCount - 750;
+                bonus = 250*0.25 + 250*0.5 + over750*0.75;
+            } else if (recordsCount > 500) {
+                const over500 = recordsCount - 500;
+                bonus = 250*0.25 + over500*0.5;
+            } else if (recordsCount > 250) {
+                const over250 = recordsCount - 250;
+                bonus = over250*0.25;
+            }
+            
+            // Максимальный бонус 1500 руб
+            bonus = Math.min(bonus, MAX_BONUS);
+            
+            // Общий заработок
+            totalPayment = basePayment + bonus;
+            
+            // Процент от максимального бонуса
+            const bonusPercent = (bonus / MAX_BONUS * 100).toFixed(1);
+            
+            // Обновление результатов
+            document.getElementById('result').innerHTML = `
+                <p>Обычная оплата: ${basePayment.toFixed(2)} руб. (${sheetsCount} листов × 4 руб.)</p>
+                <p>Бонус: ${bonus.toFixed(2)} руб. (${bonusPercent}% от максимума)</p>
+                <p><strong>Итого: ${totalPayment.toFixed(2)} руб.</strong></p>
+            `;
+        }
+        
+        // Расчет заработка в час
+        function calculateHourlyRate() {
+            if (seconds > 0) {
+                const hours = seconds / 3600;
+                const hourlyPayment = (totalPayment / hours).toFixed(2);
+                const recordsPerHour = (recordsCount / hours).toFixed(2);
+                const sheetsPerHour = (sheetsCount / hours).toFixed(2);
+                
+                document.getElementById('hourlyRate').innerHTML = `
+                    <p>Средний заработок в час: ${hourlyPayment} руб.</p>
+                    <p>Записей в час: ${recordsPerHour}</p>
+                    <p>Листов в час: ${sheetsPerHour}</p>
+                `;
+            }
+        }
+        
+        // Расчет времени до максимального бонуса
+        function calculateTimeToMax() {
+            const remainingBonus = MAX_BONUS - bonus;
+            const remainingRecords = MAX_RECORDS_FOR_BONUS - recordsCount;
+            
+            // Рассчитываем среднюю скорость (записей в секунду)
+            let recordsPerSecond = 0;
+            if (seconds > 0 && recordsCount > 0) {
+                recordsPerSecond = recordsCount / seconds;
+            }
+            
+            // Рассчитываем оставшееся время в секундах
+            let remainingSeconds = 0;
+            if (recordsPerSecond > 0) {
+                remainingSeconds = remainingRecords / recordsPerSecond;
+            }
+            
+            // Форматируем время
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            const secs = Math.floor(remainingSeconds % 60);
+            
+            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            document.getElementById('timeToMax').innerHTML = `
+                <p>До максимального бонуса (1500 руб.):</p>
+                <p>Осталось записей: ${remainingRecords}</p>
+                <p>Осталось времени: ${timeString}</p>
+                ${remainingBonus > 0 ? `<p>Осталось бонуса: ${remainingBonus.toFixed(2)} руб.</p>` : '<p>Максимальный бонус достигнут!</p>'}
+            `;
+        }
+        
+        // Секундомер
+        function startStopTimer() {
+            if (timerRunning) {
+                clearInterval(timerInterval);
+                timerRunning = false;
+            } else {
+                if (seconds === 0) {
+                    seconds = parseInt(document.getElementById('initialTime').value) * 60;
+                }
+                timerInterval = setInterval(updateTimer, 1000);
+                timerRunning = true;
+            }
+        }
+        
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            seconds = 0;
+            updateTimerDisplay();
+            calculateHourlyRate();
+            calculateTimeToMax();
+        }
+        
+        function updateTimer() {
+            seconds++;
+            updateTimerDisplay();
+            calculateHourlyRate();
+            calculateTimeToMax();
+        }
+        
+        function updateTimerDisplay() {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            document.getElementById('timeDisplay').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    </script>
+</body>
+</html>
